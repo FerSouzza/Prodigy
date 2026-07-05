@@ -11,7 +11,6 @@ supportedArchitectures:
   libc:
     - glibc
     - musl
-# Refuse packages published < 7 days ago, matching the root pnpm-workspace.yaml.
 minimumReleaseAge: 10080
 onlyBuiltDependencies:
   - '@tailwindcss/oxide'
