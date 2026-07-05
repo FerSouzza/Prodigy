@@ -504,15 +504,48 @@ export default function App() {
       const base    = "https://sheets.googleapis.com/v4/spreadsheets";
       const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
-      // Clear existing content
-      await fetch(`${base}/${sheetId}/values/A1:Z500:clear`, { method: "POST", headers });
+      // Template cell mapping
+      // Each exercise occupies 4 rows: name+series on row N, action+reps on row N+2
+      // Day 1: name=B, action=B, series=D, reps=D
+      // Day 2: name=F, action=F, series=G, reps=G
+      // Day 3: name=I, action=I, series=J, reps=J
+      const DAY_COLS = [
+        { name: "B", action: "B", series: "D", reps: "D" },
+        { name: "F", action: "F", series: "G", reps: "G" },
+        { name: "I", action: "I", series: "J", reps: "J" },
+      ];
+      const START_ROW   = 10;
+      const ROWS_PER_EX = 4;
+      const MAX_DAYS    = 3;
+      const MAX_EX      = 10;
 
-      // Write rows
-      const rows = buildSheetRows();
-      await fetch(`${base}/${sheetId}/values/A1?valueInputOption=RAW`, {
-        method:  "PUT",
+      const data: { range: string; values: string[][] }[] = [];
+
+      // Student info
+      data.push({ range: "B3", values: [[studentName]] });
+      data.push({ range: "H3", values: [[studentSex]] });
+
+      // Exercises per day
+      trainingDays.slice(0, MAX_DAYS).forEach((day, dayIdx) => {
+        const cols = DAY_COLS[dayIdx];
+        const exs  = (dayExercises[day] ?? []).slice(0, MAX_EX);
+
+        exs.forEach((ex, exIdx) => {
+          const nameRow   = START_ROW + exIdx * ROWS_PER_EX;
+          const actionRow = nameRow + 2;
+
+          data.push({ range: `${cols.name}${nameRow}`,   values: [[ex.name]] });
+          data.push({ range: `${cols.action}${actionRow}`, values: [[ex.anatomicalAction]] });
+          data.push({ range: `${cols.series}${nameRow}`, values: [[ex.sets]] });
+          data.push({ range: `${cols.reps}${actionRow}`, values: [[ex.reps]] });
+        });
+      });
+
+      // Write to specific cells (preserves template formatting)
+      await fetch(`${base}/${sheetId}/values:batchUpdate`, {
+        method: "POST",
         headers,
-        body:    JSON.stringify({ range: "A1", majorDimension: "ROWS", values: rows }),
+        body: JSON.stringify({ valueInputOption: "RAW", data }),
       });
 
       setAccessToken(token);
