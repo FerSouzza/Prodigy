@@ -612,14 +612,24 @@ export default function App() {
         body: JSON.stringify({ valueInputOption: "RAW", data }),
       });
 
-      // Apply gray formatting if needed
-      if (formatRequests.length > 0) {
-        await fetch(`${base}/${sheetId}:batchUpdate`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ requests: formatRequests }),
-        });
-      }
+      // Reset all exercise cell backgrounds to white, then apply gray where needed
+      const resetRanges = [
+        { startCol: 1, endCol: 4 },  // B–D
+        { startCol: 5, endCol: 7 },  // F–G
+        { startCol: 8, endCol: 10 }, // I–J
+      ].map((cr) => ({
+        repeatCell: {
+          range: { sheetId: 0, startRowIndex: 9, endRowIndex: 49, startColumnIndex: cr.startCol, endColumnIndex: cr.endCol },
+          cell: { userEnteredFormat: { backgroundColor: { red: 1, green: 1, blue: 1 } } },
+          fields: "userEnteredFormat.backgroundColor",
+        },
+      }));
+
+      await fetch(`${base}/${sheetId}:batchUpdate`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ requests: [...resetRanges, ...formatRequests] }),
+      });
 
       setAccessToken(token);
       setSaveStatus("saved");
@@ -653,7 +663,7 @@ export default function App() {
     if (!accessToken || !spreadsheetId) return;
     setExporting(true);
     try {
-      const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=pdf&size=A4&portrait=true&scale=1&fitw=false&gridlines=false&printtitle=false&sheetnames=false&top_margin=0.2047&bottom_margin=0&left_margin=0.1&right_margin=0`;
+      const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=pdf&size=A4&portrait=true&scale=1&fitw=false&gridlines=false&printtitle=false&sheetnames=false&top_margin=0.5&bottom_margin=0.5&left_margin=0.2&right_margin=0.2`;
       const res  = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
       if (!res.ok) throw new Error("export failed");
       const blob = await res.blob();
