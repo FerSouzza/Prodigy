@@ -580,7 +580,7 @@ export default function App() {
                 },
                 cell: {
                   userEnteredFormat: {
-                    backgroundColor: { red: 0.4, green: 0.4, blue: 0.4 },
+                    backgroundColor: { red: 0.714, green: 0.714, blue: 0.714 },
                   },
                 },
                 fields: "userEnteredFormat.backgroundColor",
@@ -644,7 +644,7 @@ export default function App() {
     if (!accessToken || !spreadsheetId) return;
     setExporting(true);
     try {
-      const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=pdf&size=A4&portrait=true&fitw=true&gridlines=false&printtitle=false&sheetnames=false&top_margin=0.118&bottom_margin=0&left_margin=0.394&right_margin=0.394`;
+      const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=pdf&size=A4&portrait=true&scale=1&fitw=false&gridlines=false&printtitle=false&sheetnames=false&top_margin=0.2047&bottom_margin=0&left_margin=0&right_margin=0`;
       const res  = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
       if (!res.ok) throw new Error("export failed");
       const blob = await res.blob();
