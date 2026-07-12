@@ -597,6 +597,15 @@ export default function App() {
       });
 
       // Write values
+      // Clear previous data before writing (preserves template formatting)
+      await fetch(`${base}/${sheetId}/values:batchClear`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          ranges: ["B3", "H3", "B10:D49", "F10:G49", "I10:J49", "A54:A57"],
+        }),
+      });
+
       await fetch(`${base}/${sheetId}/values:batchUpdate`, {
         method: "POST",
         headers,
