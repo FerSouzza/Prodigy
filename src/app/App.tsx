@@ -663,7 +663,7 @@ export default function App() {
     if (!accessToken || !spreadsheetId) return;
     setExporting(true);
     try {
-      const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=pdf&size=A4&portrait=true&scale=1&fitw=false&gridlines=false&printtitle=false&sheetnames=false&top_margin=0.5&bottom_margin=0.5&left_margin=0.2&right_margin=0.2&hc=true`;
+      const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=pdf&size=A4&portrait=true&scale=1&fitw=false&gridlines=false&printtitle=false&sheetnames=false&top_margin=0.5&bottom_margin=0.5&left_margin=0.5&right_margin=0.2&hc=true`;
       const res  = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
       if (!res.ok) throw new Error("export failed");
       const blob = await res.blob();
