@@ -461,7 +461,7 @@ export default function App() {
   // ── Build rows for the sheet ──────────────────────────────────────────────
   const buildSheetRows = (): string[][] => {
     const rows: string[][] = [];
-    rows.push(["PRODIGY — Ficha de Treino", "", "", "", "", "", ""]);
+    rows.push(["ACADEMIA NEW FORM - MUSCULAÇÃO - FCHFHI- 501 ", "", "", "", "", "", ""]);
     rows.push([]);
     rows.push(["Aluno:", studentName, "", "Sexo:", studentSex, "", ""]);
     rows.push(["Frequência:", `${trainingDays.length}× por semana`, "", "Dias:", trainingDays.join(", "), "", ""]);
@@ -708,7 +708,7 @@ export default function App() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Sexo biológico</label>
                 <div className="flex gap-3">
-                  {["Masculino", "Feminino"].map((s) => (
+                  {["M", "F"].map((s) => (
                     <button
                       key={s}
                       onClick={() => setStudentSex(s)}
