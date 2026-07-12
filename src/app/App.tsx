@@ -898,8 +898,8 @@ export default function App() {
                 </div>
               ) : (
                 <>
-                  <div className="hidden md:grid gap-3 px-4 py-2" style={{ gridTemplateColumns: "2rem 1fr 5rem 5rem 6rem 5rem 2rem" }}>
-                    {["#", "Exercício / Ação", "Séries", "Reps", "Intensidade", "Descanso", ""].map((h) => (
+                  <div className="hidden md:grid gap-3 px-4 py-2" style={{ gridTemplateColumns: "2rem 1fr auto 5rem 5rem 6rem 5rem 2rem" }}>
+                    {["#", "Exercício / Ação", "", "Séries", "Reps", "Intensidade", "Descanso", ""].map((h) => (
                       <span key={h} className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
                         {h}
                       </span>
