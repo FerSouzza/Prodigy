@@ -53,6 +53,8 @@ interface Exercise {
   reps: string;
   intensity: string;
   rest: string;
+  gray?: boolean;
+  asterisk?: boolean;
 }
 
 type MuscleGroup =
@@ -304,8 +306,19 @@ export default function App() {
 
   // Step 3
   const [periodization, setPeriodization] = useState({
-    week1: "", week2: "", week3: "", week4: "",
+    week1: { sets: "", reps: "", interval: "", obs: "" },
+    week2: { sets: "", reps: "", interval: "", obs: "" },
+    week3: { sets: "", reps: "", interval: "", obs: "" },
+    week4: { sets: "", reps: "", interval: "", obs: "" },
   });
+  const ORDINALS = ["1ª", "2ª", "3ª", "4ª"];
+  const formatWeek = (w: { sets: string; reps: string; interval: string; obs: string }, i: number) => {
+    const s = w.sets.trim(), r = w.reps.trim(), iv = w.interval.trim(), ob = w.obs.trim();
+    if (!s && !r && !iv && !ob) return "";
+    let line = `${ORDINALS[i]} SEMANA – EXECUTAR ${s.padStart(2,"0")}X${r.padStart(2,"0")} – ${iv}" DE INTERVALO`;
+    if (ob) line += `. ${ob}`;
+    return line;
+  };
 
   // ── Google Sheets config ──────────────────────────────────────────────────
   const [configOpen, setConfigOpen]       = useState(false);
@@ -449,6 +462,13 @@ export default function App() {
     }));
   };
 
+  const toggleExerciseFlag = (day: string, id: string, flag: "gray" | "asterisk") => {
+    setDayExercises((prev) => ({
+      ...prev,
+      [day]: (prev[day] ?? []).map((e) => e.id === id ? { ...e, [flag]: !e[flag] } : e),
+    }));
+  };
+
   // ── Save config ──────────────────────────────────────────────────────────
   const saveConfig = () => {
     localStorage.setItem("prodigy_client_id", clientIdDraft.trim());
@@ -485,12 +505,12 @@ export default function App() {
       rows.push([]);
     });
 
-    const hasPerio = Object.values(periodization).some((v) => v.trim());
+    const hasPerio = (["week1", "week2", "week3", "week4"] as const).some((w) => formatWeek(periodization[w], 0).length > 0 || periodization[w].sets || periodization[w].reps || periodization[w].interval);
     if (hasPerio) {
       rows.push(["PERIODIZAÇÃO", "", "", "", "", "", ""]);
       (["week1", "week2", "week3", "week4"] as const).forEach((week, i) => {
-        if (periodization[week].trim())
-          rows.push([`Semana ${i + 1}`, periodization[week], "", "", "", "", ""]);
+        const label = formatWeek(periodization[week], i);
+        if (label) rows.push([label, "", "", "", "", "", ""]);
       });
     }
     return rows;
@@ -522,8 +542,16 @@ export default function App() {
       const data: { range: string; values: string[][] }[] = [];
 
       // Student info
-      data.push({ range: "B3", values: [[studentName]] });
+      data.push({ range: "B3", values: [[studentName.toUpperCase()]] });
       data.push({ range: "H3", values: [[studentSex === "Masculino" ? "M" : "F"]] });
+
+      // Day column ranges for gray formatting (0-indexed columns)
+      const DAY_COL_RANGES = [
+        { startCol: 1, endCol: 4 },  // B–D
+        { startCol: 5, endCol: 7 },  // F–G
+        { startCol: 8, endCol: 10 }, // I–J
+      ];
+      const formatRequests: object[] = [];
 
       // Exercises per day
       trainingDays.slice(0, MAX_DAYS).forEach((day, dayIdx) => {
@@ -534,19 +562,55 @@ export default function App() {
           const nameRow   = START_ROW + exIdx * ROWS_PER_EX;
           const actionRow = nameRow + 2;
 
-          data.push({ range: `${cols.name}${nameRow}`,   values: [[ex.name]] });
+          data.push({ range: `${cols.name}${nameRow}`,     values: [[ex.name]] });
           data.push({ range: `${cols.action}${actionRow}`, values: [[ex.anatomicalAction]] });
-          data.push({ range: `${cols.series}${nameRow}`, values: [[ex.sets]] });
-          data.push({ range: `${cols.reps}${actionRow}`, values: [[ex.reps]] });
+          data.push({ range: `${cols.series}${nameRow}`,   values: [[ex.asterisk ? "*" : ex.sets]] });
+          data.push({ range: `${cols.reps}${actionRow}`,   values: [[ex.reps]] });
+
+          if (ex.gray) {
+            const cr = DAY_COL_RANGES[dayIdx];
+            formatRequests.push({
+              repeatCell: {
+                range: {
+                  sheetId: 0,
+                  startRowIndex: nameRow - 1,
+                  endRowIndex:   nameRow + 3,
+                  startColumnIndex: cr.startCol,
+                  endColumnIndex:   cr.endCol,
+                },
+                cell: {
+                  userEnteredFormat: {
+                    backgroundColor: { red: 0.4, green: 0.4, blue: 0.4 },
+                  },
+                },
+                fields: "userEnteredFormat.backgroundColor",
+              },
+            });
+          }
         });
       });
 
-      // Write to specific cells (preserves template formatting)
+      // Periodization rows A54–A57
+      (["week1", "week2", "week3", "week4"] as const).forEach((week, i) => {
+        const label = formatWeek(periodization[week], i);
+        if (label) data.push({ range: `A${54 + i}`, values: [[label]] });
+      });
+
+      // Write values
       await fetch(`${base}/${sheetId}/values:batchUpdate`, {
         method: "POST",
         headers,
         body: JSON.stringify({ valueInputOption: "RAW", data }),
       });
+
+      // Apply gray formatting if needed
+      if (formatRequests.length > 0) {
+        await fetch(`${base}/${sheetId}:batchUpdate`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ requests: formatRequests }),
+        });
+      }
 
       setAccessToken(token);
       setSaveStatus("saved");
@@ -580,7 +644,7 @@ export default function App() {
     if (!accessToken || !spreadsheetId) return;
     setExporting(true);
     try {
-      const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=pdf&size=A4&portrait=true&fitw=true&gridlines=false&printtitle=false&sheetnames=false`;
+      const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=pdf&size=A4&portrait=true&fitw=true&gridlines=false&printtitle=false&sheetnames=false&top_margin=0.118&bottom_margin=0&left_margin=0.394&right_margin=0.394`;
       const res  = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
       if (!res.ok) throw new Error("export failed");
       const blob = await res.blob();
@@ -845,26 +909,44 @@ export default function App() {
                     <div
                       key={ex.id}
                       onClick={() => openEditModal(ex)}
-                      className="group flex md:grid items-center gap-3 p-4 rounded-xl bg-card border border-border hover:border-primary/25 transition-all cursor-pointer"
-                      style={{ gridTemplateColumns: "2rem 1fr 5rem 5rem 6rem 5rem 2rem" }}
+                      className={`group flex md:grid items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${ex.gray ? "bg-[#444444] border-[#555555] hover:border-[#666666]" : "bg-card border-border hover:border-primary/25"}`}
+                      style={{ gridTemplateColumns: "2rem 1fr auto 5rem 5rem 6rem 5rem 2rem" }}
                     >
-                      <span className="text-xs text-muted-foreground flex-shrink-0" style={{ fontFamily: "'DM Mono', monospace" }}>
+                      <span className={`text-xs flex-shrink-0 ${ex.gray ? "text-[#aaaaaa]" : "text-muted-foreground"}`} style={{ fontFamily: "'DM Mono', monospace" }}>
                         {String(i + 1).padStart(2, "0")}
                       </span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-medium text-sm text-foreground">{ex.name}</p>
+                          <p className={`font-medium text-sm ${ex.gray ? "text-white" : "text-foreground"}`}>{ex.name}</p>
                           <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] border font-medium ${MUSCLE_COLOR[ex.muscleGroup] ?? "bg-primary/10 text-primary border-primary/20"}`}>
                             {ex.muscleGroup}
                           </span>
                         </div>
                         {ex.anatomicalAction && (
-                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{ex.anatomicalAction}</p>
+                          <p className={`text-xs mt-0.5 truncate ${ex.gray ? "text-[#aaaaaa]" : "text-muted-foreground"}`}>{ex.anatomicalAction}</p>
                         )}
                       </div>
+                      {/* Flag buttons */}
+                      <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          title="Pintar cinza escuro na planilha"
+                          onClick={(e) => { e.stopPropagation(); toggleExerciseFlag(activeDay, ex.id, "gray"); }}
+                          className={`w-7 h-7 rounded-md border text-xs font-bold flex items-center justify-center transition-all ${ex.gray ? "bg-[#666666] border-[#888888] text-white" : "bg-muted border-border text-muted-foreground hover:border-[#666666] hover:text-[#888888]"}`}
+                          style={{ fontFamily: "'DM Mono', monospace" }}
+                        >
+                          ■
+                        </button>
+                        <button
+                          title="Asterisco na célula de séries"
+                          onClick={(e) => { e.stopPropagation(); toggleExerciseFlag(activeDay, ex.id, "asterisk"); }}
+                          className={`w-7 h-7 rounded-md border text-sm font-bold flex items-center justify-center transition-all ${ex.asterisk ? "bg-primary/20 border-primary text-primary" : "bg-muted border-border text-muted-foreground hover:border-primary/40 hover:text-primary"}`}
+                        >
+                          *
+                        </button>
+                      </div>
                       {[ex.sets || "—", ex.reps || "—", ex.intensity || "—", ex.rest || "—"].map((val, vi) => (
-                        <span key={vi} className="hidden md:block text-sm text-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
-                          {val}
+                        <span key={vi} className={`hidden md:block text-sm ${ex.gray ? "text-[#cccccc]" : "text-foreground"}`} style={{ fontFamily: "'DM Mono', monospace" }}>
+                          {vi === 0 && ex.asterisk ? "*" : val}
                         </span>
                       ))}
                       <button
@@ -897,25 +979,60 @@ export default function App() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {(["week1", "week2", "week3", "week4"] as const).map((week, i) => (
-                <div key={week} className="flex flex-col gap-2">
+                <div key={week} className="flex flex-col gap-3 p-5 rounded-2xl bg-card border border-border">
                   <div className="flex items-center gap-2.5">
                     <div className="w-6 h-6 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
                       <span className="text-primary text-[10px] font-bold" style={{ fontFamily: "'DM Mono', monospace" }}>W{i + 1}</span>
                     </div>
-                    <label className="text-sm font-medium">Semana {i + 1}</label>
+                    <label className="text-sm font-medium">{ORDINALS[i]} Semana</label>
                   </div>
-                  <textarea
-                    value={periodization[week]}
-                    onChange={(e) => setPeriodization((p) => ({ ...p, [week]: e.target.value }))}
-                    placeholder={[
-                      "Ex: Adaptação neural — carga leve (55–65% 1RM), volume baixo, foco em técnica. 3 × 12–15 reps.",
-                      "Ex: Hipertrofia inicial — carga moderada (65–75% 1RM), volume médio, TUT aumentado. 4 × 8–12 reps.",
-                      "Ex: Força — carga alta (75–85% 1RM), volume reduzido, intervalos maiores. 4–5 × 5–8 reps.",
-                      "Ex: Deload — carga reduzida (50–60% 1RM), recuperação ativa. 2–3 × 10 reps.",
-                    ][i]}
-                    rows={7}
-                    className="w-full px-4 py-3 rounded-xl bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none transition-all leading-relaxed"
-                  />
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>Séries</span>
+                      <input
+                        type="text"
+                        value={periodization[week].sets}
+                        onChange={(e) => setPeriodization((p) => ({ ...p, [week]: { ...p[week], sets: e.target.value } }))}
+                        placeholder="03"
+                        className="w-full px-3 py-2 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>Repetições</span>
+                      <input
+                        type="text"
+                        value={periodization[week].reps}
+                        onChange={(e) => setPeriodization((p) => ({ ...p, [week]: { ...p[week], reps: e.target.value } }))}
+                        placeholder="15"
+                        className="w-full px-3 py-2 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>Intervalo (seg)</span>
+                      <input
+                        type="text"
+                        value={periodization[week].interval}
+                        onChange={(e) => setPeriodization((p) => ({ ...p, [week]: { ...p[week], interval: e.target.value } }))}
+                        placeholder="50"
+                        className="w-full px-3 py-2 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase tracking-widest text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>Observação (opcional)</span>
+                    <textarea
+                      value={periodization[week].obs}
+                      onChange={(e) => setPeriodization((p) => ({ ...p, [week]: { ...p[week], obs: e.target.value } }))}
+                      placeholder="Ex: ONDE TEM (*) FAZER 4 REPS + DESCANSO DE 15&quot; + FAZER 4 REPS..."
+                      rows={3}
+                      className="w-full px-3 py-2 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none transition-all leading-relaxed"
+                    />
+                  </div>
+                  {formatWeek(periodization[week], i) && (
+                    <p className="text-[11px] text-primary font-medium mt-1" style={{ fontFamily: "'DM Mono', monospace" }}>
+                      {formatWeek(periodization[week], i)}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -1041,25 +1158,26 @@ export default function App() {
             )}
 
             {/* Periodization */}
-            {Object.values(periodization).some((v) => v.trim()) && (
+            {(["week1", "week2", "week3", "week4"] as const).some((w, i) => !!formatWeek(periodization[w], i)) && (
               <div className="space-y-4">
                 <h2 className="text-lg font-semibold" style={{ fontFamily: "'Outfit', sans-serif" }}>Periodização</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {(["week1", "week2", "week3", "week4"] as const).map((week, i) =>
-                    periodization[week].trim() ? (
+                  {(["week1", "week2", "week3", "week4"] as const).map((week, i) => {
+                    const label = formatWeek(periodization[week], i);
+                    return label ? (
                       <div key={week} className="p-5 rounded-2xl bg-card border border-border">
-                        <div className="flex items-center gap-2 mb-3">
+                        <div className="flex items-center gap-2 mb-2">
                           <div className="w-5 h-5 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center">
                             <span className="text-primary text-[9px] font-bold" style={{ fontFamily: "'DM Mono', monospace" }}>W{i + 1}</span>
                           </div>
                           <p className="text-[10px] font-medium uppercase tracking-widest text-primary" style={{ fontFamily: "'DM Mono', monospace" }}>
-                            Semana {i + 1}
+                            {ORDINALS[i]} Semana
                           </p>
                         </div>
-                        <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{periodization[week]}</p>
+                        <p className="text-sm text-foreground font-medium" style={{ fontFamily: "'DM Mono', monospace" }}>{label}</p>
                       </div>
-                    ) : null
-                  )}
+                    ) : null;
+                  })}
                 </div>
               </div>
             )}
