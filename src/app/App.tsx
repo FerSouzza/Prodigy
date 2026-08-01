@@ -1175,7 +1175,7 @@ export default function App() {
             )}
 
             {/* Periodization */}
-            {(["week1", "week2", "week3", "week4"] as const).some((w, i) => !!formatWeek(periodization[week], i)) && (
+              {(["week1", "week2", "week3", "week4"] as const).some((w, i) => !!formatWeek(periodization[w], i)) && (
               <div className="space-y-4">
                 <h2 className="text-lg font-semibold uppercase" style={{ fontFamily: "'Outfit', sans-serif" }}>Periodização</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
