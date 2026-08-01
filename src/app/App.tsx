@@ -1156,7 +1156,7 @@ export default function App() {
             ) : (
               <div className="rounded-2xl border border-border overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm uppercase">
                     <thead>
                       <tr className="bg-muted border-b border-border">
                         {["Dia", "#", "Grupo", "Ação Anatômica / Exercício", "Séries", "Reps", "Intensidade", "Descanso"].map((h) => (
