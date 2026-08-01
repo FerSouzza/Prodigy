@@ -118,7 +118,9 @@ const LIBRARY: Record<string, { name: string; anatomicalAction: string }[]> = {
     { name: "Supino máquina articulado (Pegada neutra)", anatomicalAction: "Adução horizontal com maior flexão de ombro" },
     { name: "Supino unilateral máquina articulada (Pegada neutra/pronada)", anatomicalAction: "Adução horizontal isolada e ativação de core anti-rotação" },
     { name: "Supino (Crossover angular)", anatomicalAction: "Adução horizontal e extensão de cotovelo com tensão contínua" },
-    { name: "Peitoral dorsal (COSTA P/ a Máquina)", anatomicalAction: "Adução horizontal do ombro isolada" },
+    { name: "Peck deck", anatomicalAction: "Adução horizontal do ombro isolada" },
+    { name: "Voador", anatomicalAction: "Adução horizontal do ombro isolada" },
+    { name: "Peitoral dorsal (Máquina)", anatomicalAction: "Adução horizontal do ombro isolada" },
     { name: "Banco crucifixo reto (Halteres)", anatomicalAction: "Adução horizontal do ombro" },
     { name: "Banco crucifixo inclinado (Halteres)", anatomicalAction: "Adução horizontal — porção clavicular" },
     { name: "Banco crucifixo declinado (Halteres)", anatomicalAction: "Adução horizontal — porção esternal inferior" },
@@ -301,8 +303,12 @@ const LIBRARY: Record<string, { name: string; anatomicalAction: string }[]> = {
     { name: "Prancha frontal no solo (Livre)", anatomicalAction: "Contração isométrica de core (anti-extensão)" },
     { name: "Prancha lateral no solo (Livre)", anatomicalAction: "Contração isométrica de core (anti-flexão lateral)" },
     { name: "Hiperextensão lombar (Suporte)", anatomicalAction: "Extensão de tronco e quadril" },
-  ]
+  ],
+  Cardio: [],
+  Alongamento: [],
+  Aquecimento: [],
 };
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const DAYS_SHORT = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
@@ -428,11 +434,12 @@ export default function App() {
   const filteredLibrary = useMemo(() => {
     const groups = libFilter === "Todos" ? MUSCLE_GROUPS : [libFilter as MuscleGroup];
     const q = libSearch.trim().toLowerCase();
-    return groups.flatMap((g) =>
-      LIBRARY[g]
+    return groups.flatMap((g) => {
+      const list = LIBRARY[g] || [];
+      return list
         .filter((ex) => !q || ex.name.toLowerCase().includes(q) || ex.anatomicalAction.toLowerCase().includes(q))
-        .map((ex) => ({ ...ex, muscleGroup: g }))
-    );
+        .map((ex) => ({ ...ex, muscleGroup: g }));
+    });
   }, [libFilter, libSearch]);
 
   // ── Modal helpers ─────────────────────────────────────────────────────────
@@ -562,11 +569,6 @@ export default function App() {
       const base    = "https://sheets.googleapis.com/v4/spreadsheets";
       const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
-      // Template cell mapping
-      // Each exercise occupies 4 rows: name+series on row N, action+reps on row N+2
-      // Day 1: name=B, action=B, series=D, reps=D
-      // Day 2: name=F, action=F, series=G, reps=G
-      // Day 3: name=I, action=I, series=J, reps=J
       const DAY_COLS = [
         { name: "B", action: "B", series: "D", reps: "D" },
         { name: "F", action: "F", series: "G", reps: "G" },
@@ -579,11 +581,9 @@ export default function App() {
 
       const data: { range: string; values: string[][] }[] = [];
 
-      // Student info
       data.push({ range: "B3", values: [[studentName.toUpperCase()]] });
       data.push({ range: "H3", values: [[studentSex === "Masculino" ? "M" : "F"]] });
 
-      // Day column ranges for gray formatting (0-indexed columns)
       const DAY_COL_RANGES = [
         { startCol: 1, endCol: 4 },  // B–D
         { startCol: 5, endCol: 7 },  // F–G
@@ -591,7 +591,6 @@ export default function App() {
       ];
       const formatRequests: object[] = [];
 
-      // Exercises per day
       trainingDays.slice(0, MAX_DAYS).forEach((day, dayIdx) => {
         const cols = DAY_COLS[dayIdx];
         const exs  = (dayExercises[day] ?? []).slice(0, MAX_EX);
@@ -628,14 +627,11 @@ export default function App() {
         });
       });
 
-      // Periodization rows A54–A57
       (["week1", "week2", "week3", "week4"] as const).forEach((week, i) => {
         const label = formatWeek(periodization[week], i);
         if (label) data.push({ range: `A${54 + i}`, values: [[label]] });
       });
 
-      // Write values
-      // Clear previous data before writing (preserves template formatting)
       await fetch(`${base}/${sheetId}/values:batchClear`, {
         method: "POST",
         headers,
@@ -650,7 +646,6 @@ export default function App() {
         body: JSON.stringify({ valueInputOption: "RAW", data }),
       });
 
-      // Reset all exercise cell backgrounds to white, then apply gray where needed
       const resetRanges = [
         { startCol: 1, endCol: 4 },  // B–D
         { startCol: 5, endCol: 7 },  // F–G
