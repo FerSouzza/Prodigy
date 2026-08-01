@@ -361,7 +361,7 @@ export default function App() {
     if (!s && !r && !iv && !ob) return "";
     let line = `${ORDINALS[i]} SEMANA – EXECUTAR ${s.padStart(2,"0")}X${r.padStart(2,"0")} – ${iv}" DE INTERVALO`;
     if (ob) line += `. ${ob}`;
-    return line;
+    return line.toUpperCase();
   };
 
   // ── Google Sheets config ──────────────────────────────────────────────────
@@ -523,45 +523,7 @@ export default function App() {
     setConfigOpen(false);
   };
 
-  // ── Build rows for the sheet ──────────────────────────────────────────────
-  const buildSheetRows = (): string[][] => {
-    const rows: string[][] = [];
-    rows.push(["PRODIGY — Ficha de Treino", "", "", "", "", "", ""]);
-    rows.push([]);
-    rows.push(["Aluno:", studentName, "", "Sexo:", studentSex, "", ""]);
-    rows.push(["Frequência:", `${trainingDays.length}× por semana`, "", "Dias:", trainingDays.join(", "), "", ""]);
-    rows.push([]);
-    rows.push(["Dia", "Grupo Muscular", "Ação Anatômica / Exercício", "Séries", "Repetições", "Intensidade", "Descanso"]);
-
-    trainingDays.forEach((day) => {
-      const exs = dayExercises[day] ?? [];
-      if (exs.length === 0) return;
-      exs.forEach((ex, i) => {
-        rows.push([
-          i === 0 ? day : "",
-          ex.muscleGroup,
-          ex.anatomicalAction ? `${ex.name} — ${ex.anatomicalAction}` : ex.name,
-          ex.sets  || "",
-          ex.reps  || "",
-          ex.intensity || "",
-          ex.rest  || "",
-        ]);
-      });
-      rows.push([]);
-    });
-
-    const hasPerio = (["week1", "week2", "week3", "week4"] as const).some((w) => formatWeek(periodization[w], 0).length > 0 || periodization[w].sets || periodization[w].reps || periodization[w].interval);
-    if (hasPerio) {
-      rows.push(["PERIODIZAÇÃO", "", "", "", "", "", ""]);
-      (["week1", "week2", "week3", "week4"] as const).forEach((week, i) => {
-        const label = formatWeek(periodization[week], i);
-        if (label) rows.push([label, "", "", "", "", "", ""]);
-      });
-    }
-    return rows;
-  };
-
-  // ── Write rows to Sheets and then enable PDF ──────────────────────────────
+  // ── Write rows to Sheets in UPPERCASE ──────────────────────────────────────
   const writeToSheet = async (token: string) => {
     setSaveStatus("saving");
     try {
@@ -581,6 +543,7 @@ export default function App() {
 
       const data: { range: string; values: string[][] }[] = [];
 
+      // Converte Nome do Aluno e Sexo para MAIÚSCULAS
       data.push({ range: "B3", values: [[studentName.toUpperCase()]] });
       data.push({ range: "H3", values: [[studentSex === "Masculino" ? "M" : "F"]] });
 
@@ -599,10 +562,11 @@ export default function App() {
           const nameRow   = START_ROW + exIdx * ROWS_PER_EX;
           const actionRow = nameRow + 2;
 
-          data.push({ range: `${cols.name}${nameRow}`,     values: [[ex.name]] });
-          data.push({ range: `${cols.action}${actionRow}`, values: [[ex.anatomicalAction]] });
-          data.push({ range: `${cols.series}${nameRow}`,   values: [[ex.asterisk ? "*" : ex.sets]] });
-          data.push({ range: `${cols.reps}${actionRow}`,   values: [[ex.reps]] });
+          // Converte Nome do Exercício, Ação Anatômica, Séries e Reps para MAIÚSCULAS
+          data.push({ range: `${cols.name}${nameRow}`,     values: [[ex.name.toUpperCase()]] });
+          data.push({ range: `${cols.action}${actionRow}`, values: [[ex.anatomicalAction.toUpperCase()]] });
+          data.push({ range: `${cols.series}${nameRow}`,   values: [[ex.asterisk ? "*" : ex.sets.toUpperCase()]] });
+          data.push({ range: `${cols.reps}${actionRow}`,   values: [[ex.reps.toUpperCase()]] });
 
           if (ex.gray) {
             const cr = DAY_COL_RANGES[dayIdx];
@@ -627,9 +591,10 @@ export default function App() {
         });
       });
 
+      // Periodização em MAIÚSCULAS
       (["week1", "week2", "week3", "week4"] as const).forEach((week, i) => {
         const label = formatWeek(periodization[week], i);
-        if (label) data.push({ range: `A${54 + i}`, values: [[label]] });
+        if (label) data.push({ range: `A${54 + i}`, values: [[label.toUpperCase()]] });
       });
 
       await fetch(`${base}/${sheetId}/values:batchClear`, {
@@ -802,7 +767,7 @@ export default function App() {
               <p className="text-xs tracking-widest text-primary uppercase mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>
                 Etapa 01 / Cadastro
               </p>
-              <h1 className="text-3xl font-semibold" style={{ fontFamily: "'Outfit', sans-serif" }}>
+              <h1 className="text-3xl font-semibold uppercase" style={{ fontFamily: "'Outfit', sans-serif" }}>
                 Dados do Aluno
               </h1>
               <p className="text-muted-foreground mt-1 text-sm">
@@ -818,7 +783,7 @@ export default function App() {
                   placeholder="Ex: João Silva"
                   value={studentName}
                   onChange={(e) => setStudentName(e.target.value)}
-                  className="w-full h-11 px-4 rounded-xl bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                  className="w-full h-11 px-4 rounded-xl bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all uppercase"
                 />
               </div>
               <div className="space-y-2">
@@ -872,7 +837,7 @@ export default function App() {
               {trainingDays.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {trainingDays.map((d) => (
-                    <span key={d} className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs border border-primary/20" style={{ fontFamily: "'DM Mono', monospace" }}>
+                    <span key={d} className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs border border-primary/20 uppercase" style={{ fontFamily: "'DM Mono', monospace" }}>
                       {d}
                     </span>
                   ))}
@@ -890,7 +855,7 @@ export default function App() {
                 <p className="text-xs tracking-widest text-primary uppercase mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>
                   Etapa 02 / Treino
                 </p>
-                <h1 className="text-3xl font-semibold" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                <h1 className="text-3xl font-semibold uppercase" style={{ fontFamily: "'Outfit', sans-serif" }}>
                   Programação de Exercícios
                 </h1>
                 <p className="text-muted-foreground mt-1 text-sm">
@@ -939,7 +904,7 @@ export default function App() {
                   <Dumbbell className="w-10 h-10 text-muted-foreground/40 mb-3" />
                   <p className="text-muted-foreground text-sm">
                     Nenhum exercício para{" "}
-                    <span className="text-foreground font-medium">{activeDay}</span>
+                    <span className="text-foreground font-medium uppercase">{activeDay}</span>
                   </p>
                   <button
                     onClick={openAddModal}
@@ -969,13 +934,13 @@ export default function App() {
                       </span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className={`font-medium text-sm ${ex.gray ? "text-white" : "text-foreground"}`}>{ex.name}</p>
-                          <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] border font-medium ${MUSCLE_COLOR[ex.muscleGroup] ?? "bg-primary/10 text-primary border-primary/20"}`}>
+                          <p className={`font-medium text-sm uppercase ${ex.gray ? "text-white" : "text-foreground"}`}>{ex.name}</p>
+                          <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] border font-medium uppercase ${MUSCLE_COLOR[ex.muscleGroup] ?? "bg-primary/10 text-primary border-primary/20"}`}>
                             {ex.muscleGroup}
                           </span>
                         </div>
                         {ex.anatomicalAction && (
-                          <p className={`text-xs mt-0.5 truncate ${ex.gray ? "text-[#aaaaaa]" : "text-muted-foreground"}`}>{ex.anatomicalAction}</p>
+                          <p className={`text-xs mt-0.5 truncate uppercase ${ex.gray ? "text-[#aaaaaa]" : "text-muted-foreground"}`}>{ex.anatomicalAction}</p>
                         )}
                       </div>
                       {/* Flag buttons */}
@@ -997,7 +962,7 @@ export default function App() {
                         </button>
                       </div>
                       {[ex.sets || "—", ex.reps || "—", ex.intensity || "—", ex.rest || "—"].map((val, vi) => (
-                        <span key={vi} className={`hidden md:block text-sm ${ex.gray ? "text-[#cccccc]" : "text-foreground"}`} style={{ fontFamily: "'DM Mono', monospace" }}>
+                        <span key={vi} className={`hidden md:block text-sm uppercase ${ex.gray ? "text-[#cccccc]" : "text-foreground"}`} style={{ fontFamily: "'DM Mono', monospace" }}>
                           {vi === 0 && ex.asterisk ? "*" : val}
                         </span>
                       ))}
@@ -1022,7 +987,7 @@ export default function App() {
               <p className="text-xs tracking-widest text-primary uppercase mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>
                 Etapa 03 / Periodização
               </p>
-              <h1 className="text-3xl font-semibold" style={{ fontFamily: "'Outfit', sans-serif" }}>
+              <h1 className="text-3xl font-semibold uppercase" style={{ fontFamily: "'Outfit', sans-serif" }}>
                 Plano de Periodização
               </h1>
               <p className="text-muted-foreground mt-1 text-sm">
@@ -1046,7 +1011,7 @@ export default function App() {
                         value={periodization[week].sets}
                         onChange={(e) => setPeriodization((p) => ({ ...p, [week]: { ...p[week], sets: e.target.value } }))}
                         placeholder="03"
-                        className="w-full px-3 py-2 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                        className="w-full px-3 py-2 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all uppercase"
                       />
                     </div>
                     <div className="flex flex-col gap-1">
@@ -1056,7 +1021,7 @@ export default function App() {
                         value={periodization[week].reps}
                         onChange={(e) => setPeriodization((p) => ({ ...p, [week]: { ...p[week], reps: e.target.value } }))}
                         placeholder="15"
-                        className="w-full px-3 py-2 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                        className="w-full px-3 py-2 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all uppercase"
                       />
                     </div>
                     <div className="flex flex-col gap-1">
@@ -1066,7 +1031,7 @@ export default function App() {
                         value={periodization[week].interval}
                         onChange={(e) => setPeriodization((p) => ({ ...p, [week]: { ...p[week], interval: e.target.value } }))}
                         placeholder="50"
-                        className="w-full px-3 py-2 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                        className="w-full px-3 py-2 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all uppercase"
                       />
                     </div>
                   </div>
@@ -1077,11 +1042,11 @@ export default function App() {
                       onChange={(e) => setPeriodization((p) => ({ ...p, [week]: { ...p[week], obs: e.target.value } }))}
                       placeholder="Ex: ONDE TEM (*) FAZER 4 REPS + DESCANSO DE 15&quot; + FAZER 4 REPS..."
                       rows={3}
-                      className="w-full px-3 py-2 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none transition-all leading-relaxed"
+                      className="w-full px-3 py-2 rounded-lg bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none transition-all leading-relaxed uppercase"
                     />
                   </div>
                   {formatWeek(periodization[week], i) && (
-                    <p className="text-[11px] text-primary font-medium mt-1" style={{ fontFamily: "'DM Mono', monospace" }}>
+                    <p className="text-[11px] text-primary font-medium mt-1 uppercase" style={{ fontFamily: "'DM Mono', monospace" }}>
                       {formatWeek(periodization[week], i)}
                     </p>
                   )}
@@ -1099,13 +1064,13 @@ export default function App() {
                 <p className="text-xs tracking-widest text-primary uppercase mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>
                   Etapa 04 / Resumo
                 </p>
-                <h1 className="text-3xl font-semibold" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                <h1 className="text-3xl font-semibold uppercase" style={{ fontFamily: "'Outfit', sans-serif" }}>
                   Ficha de Treino
                 </h1>
                 <p className="text-muted-foreground mt-1 text-sm">
                   Programa completo de{" "}
-                  <span className="text-foreground font-medium">{studentName || "Aluno"}</span>
-                  {studentSex && <span className="text-muted-foreground"> · {studentSex}</span>}
+                  <span className="text-foreground font-medium uppercase">{studentName || "Aluno"}</span>
+                  {studentSex && <span className="text-muted-foreground uppercase"> · {studentSex}</span>}
                 </p>
               </div>
               <button
@@ -1128,7 +1093,7 @@ export default function App() {
               ].map(({ label, val }) => (
                 <div key={label} className="p-5 rounded-2xl bg-card border border-border">
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>{label}</p>
-                  <p className="text-xl font-semibold truncate" style={{ fontFamily: "'Outfit', sans-serif" }}>{val}</p>
+                  <p className="text-xl font-semibold truncate uppercase" style={{ fontFamily: "'Outfit', sans-serif" }}>{val}</p>
                 </div>
               ))}
             </div>
@@ -1137,14 +1102,14 @@ export default function App() {
             {trainingDays.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {trainingDays.map((d) => (
-                  <span key={d} className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs border border-primary/20 font-medium" style={{ fontFamily: "'DM Mono', monospace" }}>
+                  <span key={d} className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs border border-primary/20 font-medium uppercase" style={{ fontFamily: "'DM Mono', monospace" }}>
                     {d} · {(dayExercises[d] ?? []).length} exercícios
                   </span>
                 ))}
               </div>
             )}
 
-            {/* Table — grouped by day */}
+            {/* Table — grouped by day (Completamente em MAIÚSCULAS) */}
             {allExercises.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 rounded-2xl border-2 border-dashed border-border">
                 <ClipboardList className="w-8 h-8 text-muted-foreground/40 mb-3" />
@@ -1156,7 +1121,7 @@ export default function App() {
             ) : (
               <div className="rounded-2xl border border-border overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm uppercase">
                     <thead>
                       <tr className="bg-muted border-b border-border">
                         {["Dia", "#", "Grupo", "Ação Anatômica / Exercício", "Séries", "Reps", "Intensidade", "Descanso"].map((h) => (
@@ -1176,7 +1141,7 @@ export default function App() {
                                 className="px-4 py-3.5 align-top"
                                 rowSpan={exs.length}
                               >
-                                <span className="inline-flex px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs border border-primary/20 font-medium whitespace-nowrap" style={{ fontFamily: "'DM Mono', monospace" }}>
+                                <span className="inline-flex px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs border border-primary/20 font-medium whitespace-nowrap uppercase" style={{ fontFamily: "'DM Mono', monospace" }}>
                                   {day}
                                 </span>
                               </td>
@@ -1185,18 +1150,18 @@ export default function App() {
                               {String(i + 1).padStart(2, "0")}
                             </td>
                             <td className="px-4 py-3.5 whitespace-nowrap">
-                              <span className={`inline-flex px-2 py-0.5 rounded-md text-[11px] border font-medium ${MUSCLE_COLOR[ex.muscleGroup] ?? "bg-primary/10 text-primary border-primary/20"}`}>
+                              <span className={`inline-flex px-2 py-0.5 rounded-md text-[11px] border font-medium uppercase ${MUSCLE_COLOR[ex.muscleGroup] ?? "bg-primary/10 text-primary border-primary/20"}`}>
                                 {ex.muscleGroup}
                               </span>
                             </td>
                             <td className="px-4 py-3.5 min-w-[200px]">
-                              <p className="font-medium text-foreground">{ex.name}</p>
+                              <p className="font-medium text-foreground uppercase">{ex.name}</p>
                               {ex.anatomicalAction && (
-                                <p className="text-xs text-muted-foreground mt-0.5">{ex.anatomicalAction}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5 uppercase">{ex.anatomicalAction}</p>
                               )}
                             </td>
                             {[ex.sets, ex.reps, ex.intensity, ex.rest].map((val, vi) => (
-                              <td key={vi} className="px-4 py-3.5 text-foreground whitespace-nowrap" style={{ fontFamily: "'DM Mono', monospace" }}>
+                              <td key={vi} className="px-4 py-3.5 text-foreground whitespace-nowrap uppercase" style={{ fontFamily: "'DM Mono', monospace" }}>
                                 {val || <span className="text-muted-foreground/40">—</span>}
                               </td>
                             ))}
@@ -1210,9 +1175,9 @@ export default function App() {
             )}
 
             {/* Periodization */}
-            {(["week1", "week2", "week3", "week4"] as const).some((w, i) => !!formatWeek(periodization[w], i)) && (
+            {(["week1", "week2", "week3", "week4"] as const).some((w, i) => !!formatWeek(periodization[week], i)) && (
               <div className="space-y-4">
-                <h2 className="text-lg font-semibold" style={{ fontFamily: "'Outfit', sans-serif" }}>Periodização</h2>
+                <h2 className="text-lg font-semibold uppercase" style={{ fontFamily: "'Outfit', sans-serif" }}>Periodização</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {(["week1", "week2", "week3", "week4"] as const).map((week, i) => {
                     const label = formatWeek(periodization[week], i);
@@ -1226,7 +1191,7 @@ export default function App() {
                             {ORDINALS[i]} Semana
                           </p>
                         </div>
-                        <p className="text-sm text-foreground font-medium" style={{ fontFamily: "'DM Mono', monospace" }}>{label}</p>
+                        <p className="text-sm text-foreground font-medium uppercase" style={{ fontFamily: "'DM Mono', monospace" }}>{label}</p>
                       </div>
                     ) : null;
                   })}
@@ -1250,7 +1215,7 @@ export default function App() {
             <button
               onClick={handleSaveProgram}
               disabled={saveStatus === "saving"}
-              className="w-full h-12 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-60"
+              className="w-full h-12 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-60 uppercase"
             >
               {saveStatus === "saving" ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Salvando na planilha…</>
@@ -1306,7 +1271,7 @@ export default function App() {
           <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-7">
             <div className="flex items-start justify-between mb-6">
               <div>
-                <Dialog.Title className="text-xl font-semibold" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                <Dialog.Title className="text-xl font-semibold uppercase" style={{ fontFamily: "'Outfit', sans-serif" }}>
                   Configurar Google Sheets
                 </Dialog.Title>
                 <Dialog.Description className="text-sm text-muted-foreground mt-1">
@@ -1399,12 +1364,12 @@ export default function App() {
             {/* Modal header */}
             <div className="flex items-start justify-between px-7 pt-6 pb-5 border-b border-border flex-shrink-0">
               <div>
-                <Dialog.Title className="text-xl font-semibold" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                <Dialog.Title className="text-xl font-semibold uppercase" style={{ fontFamily: "'Outfit', sans-serif" }}>
                   {editingId ? "Editar Exercício" : "Adicionar Exercício"}
                 </Dialog.Title>
                 <Dialog.Description className="text-sm text-muted-foreground mt-1">
                   Dia:{" "}
-                  <span className="text-primary font-medium" style={{ fontFamily: "'DM Mono', monospace" }}>
+                  <span className="text-primary font-medium uppercase" style={{ fontFamily: "'DM Mono', monospace" }}>
                     {activeDay}
                   </span>
                 </Dialog.Description>
@@ -1456,13 +1421,13 @@ export default function App() {
                             className="w-full flex items-center justify-between gap-3 p-3.5 rounded-xl bg-muted/60 border border-border hover:border-primary/30 hover:bg-primary/5 transition-all text-left group"
                           >
                             <div className="min-w-0">
-                              <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">{ex.name}</p>
+                              <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate uppercase">{ex.name}</p>
                               {ex.anatomicalAction && (
-                                <p className="text-xs text-muted-foreground truncate mt-0.5">{ex.anatomicalAction}</p>
+                                <p className="text-xs text-muted-foreground truncate mt-0.5 uppercase">{ex.anatomicalAction}</p>
                               )}
                             </div>
                             <div className="flex items-center gap-2 flex-shrink-0">
-                              <span className={`inline-flex px-2 py-0.5 rounded text-[10px] border font-medium ${MUSCLE_COLOR[ex.muscleGroup] ?? "bg-primary/10 text-primary border-primary/20"}`}>
+                              <span className={`inline-flex px-2 py-0.5 rounded text-[10px] border font-medium uppercase ${MUSCLE_COLOR[ex.muscleGroup] ?? "bg-primary/10 text-primary border-primary/20"}`}>
                                 {ex.muscleGroup}
                               </span>
                               <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1487,7 +1452,7 @@ export default function App() {
                         placeholder="Buscar exercício..."
                         value={libSearch}
                         onChange={(e) => setLibSearch(e.target.value)}
-                        className="w-full h-10 pl-9 pr-4 rounded-xl bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                        className="w-full h-10 pl-9 pr-4 rounded-xl bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all uppercase"
                       />
                     </div>
                     <div className="flex flex-wrap gap-1.5">
@@ -1519,11 +1484,11 @@ export default function App() {
                           className="w-full flex items-center justify-between gap-3 p-3.5 rounded-xl bg-muted/40 border border-border hover:border-primary/30 hover:bg-primary/5 transition-all text-left group"
                         >
                           <div className="min-w-0">
-                            <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">{item.name}</p>
-                            <p className="text-xs text-muted-foreground truncate mt-0.5">{item.anatomicalAction}</p>
+                            <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate uppercase">{item.name}</p>
+                            <p className="text-xs text-muted-foreground truncate mt-0.5 uppercase">{item.anatomicalAction}</p>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className={`inline-flex px-2 py-0.5 rounded text-[10px] border font-medium ${MUSCLE_COLOR[item.muscleGroup] ?? "bg-primary/10 text-primary border-primary/20"}`}>
+                            <span className={`inline-flex px-2 py-0.5 rounded text-[10px] border font-medium uppercase ${MUSCLE_COLOR[item.muscleGroup] ?? "bg-primary/10 text-primary border-primary/20"}`}>
                               {item.muscleGroup}
                             </span>
                             <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1558,7 +1523,7 @@ export default function App() {
                       value={newEx.name}
                       onChange={(e) => setNewEx((p) => ({ ...p, name: e.target.value }))}
                       autoFocus
-                      className="w-full h-11 px-4 rounded-xl bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      className="w-full h-11 px-4 rounded-xl bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all uppercase"
                     />
                   </div>
 
@@ -1569,7 +1534,7 @@ export default function App() {
                       placeholder="Ex: Adução horizontal do ombro"
                       value={newEx.anatomicalAction}
                       onChange={(e) => setNewEx((p) => ({ ...p, anatomicalAction: e.target.value }))}
-                      className="w-full h-11 px-4 rounded-xl bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      className="w-full h-11 px-4 rounded-xl bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all uppercase"
                     />
                   </div>
 
@@ -1606,7 +1571,7 @@ export default function App() {
                           placeholder={ph}
                           value={newEx[key as keyof typeof newEx]}
                           onChange={(e) => setNewEx((p) => ({ ...p, [key]: e.target.value }))}
-                          className="w-full h-11 px-4 rounded-xl bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                          className="w-full h-11 px-4 rounded-xl bg-input-background border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all uppercase"
                           style={{ fontFamily: "'DM Mono', monospace" }}
                         />
                       </div>
